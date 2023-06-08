@@ -29,24 +29,3 @@ response = openai.ChatCompletion.create(
 
 target_result1=response.choices[0]["message"]["content"].strip()
 print(target_result1)
-time.sleep(3)
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role":"system", "content":"あなたは与えられた文章の中からキーワードとタイトルを抜き出してJSON形式で出力するエージェントです"},
-        {"role":"user","content":target_text}
-    ],
-    temperature=0
-)
-target_result2=response.choices[0]["message"]["content"].strip()
-print(target_result2)
-time.sleep(3)
-response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role":"system", "content":"文章とそれから抜き出したデータを使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください"},
-        {"role":"user","content":f"{target_text},{target_result1},{target_result2}"}
-    ],
-    temperature=0
-)
-print(response.choices[0]["message"]["content"].strip())
