@@ -18,8 +18,8 @@ sample_result='''
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=[
-        {"role":"system","content":"あなたは与えられた文章の中から場所を表す単語を抜き出して関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。\
-         なかった場合はnullを返してください."},
+        {"role":"system","content":"あなたは与えられた文章の中から都道府県名、市区町村名、駅名を表す単語を抜き出して\
+         関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。なかった場合はnullを返してください."},
         {"role":"user", "content":sample_text},
         {"role":"assistant","content":sample_result},
         {"role":"user","content":target_text}
@@ -44,7 +44,8 @@ time.sleep(3)
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=[
-        {"role":"system", "content":"文章とそれから抜き出したデータを使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください"},
+        {"role":"system", "content":"動画の紹介文とそれから抜き出したデータを使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください.\
+         typeがThingなものは除外してください"},
         {"role":"user","content":f"{target_text},{target_result1},{target_result2}"}
     ],
     temperature=0

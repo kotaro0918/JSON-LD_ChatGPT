@@ -18,7 +18,7 @@ sample_result='''
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",
     messages=[
-        {"role":"system","content":"あなたは与えられた文章の中から場所を表す単語を抜き出して関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。\
+        {"role":"system","content":"あなたは与えられた文章の中から市町村名、都道府県名、駅名、路線名など場所を表す固有名詞をを抜き出して関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。\
          なかった場合はnullを返してください."},
         {"role":"user", "content":sample_text},
         {"role":"assistant","content":sample_result},
