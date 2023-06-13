@@ -1,13 +1,4 @@
-# llm ラッパーのインポート
-from langchain import OpenAI
-# プロンプトテンプレートのインポート
-from langchain.prompts import PromptTemplate
-
-# LLMChain に加えて SimpleSequentialChain もインポートする
-# SimpleSequentialChain は、複数のチェーンを連続実行するためのチェーンで以下の特徴をもつ
-# - 各ステップの入出力は一つ
-# - 各ステップの出力が次のステップの入力になる
-from langchain.chains import LLMChain, SimpleSequentialChain
+from langchain.chat_models import ChatOpenAI
 target_text= "根室本線は北海道の滝川駅から帯広、釧路を経て根室駅を結ぶＪＲ北海道の路線です。このうち釧路駅から\
     根室駅までの区間は「花咲線」の愛称で呼ばれています。観光シーズンには札幌からのリゾート列車が多数運行されます。キハ283系の車体は、\
     ブルーとグリーンに丹頂鶴の赤を組み合わせ北海道らしさを演出しています."
@@ -21,32 +12,47 @@ sample_result='''
     {"千葉県-都道府県-千葉県": "https://ja.wikipedia.org/wiki/千葉県"},
 }
 '''
-
-# llm ラッパーの初期化
-llm = OpenAI(temperature=0)
-prompt_first = PromptTemplate(
-    input_variables=["text"],
-    template="{text}の中から場所を表す単語を抜き出してjson形式で出力してください",
+result_list = []
+# チャットモデルで利用可能なメッセージの型をインポート
+from langchain.schema import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage,
+    LLMResult,
 )
 
-# 最初に実行する LLM チェーンを定義
-# 会社名を考えてもらう
-chain_first = LLMChain(llm=llm, prompt=prompt_first)
+# チャットモデルのラッパーを初期化
+chat = ChatOpenAI(temperature=0)
 
-# 次のプロンプトテンプレートの作成
-prompt_second = PromptTemplate(
-    input_variables=["entity_list"],
-    template="{entity_list}内の単語に関してエンティティリンキングを行なってください",
-)
+# チャットモデルに渡すメッセージを作成する
+batch_messages = [
+    [
+        SystemMessage(content="あなたは与えられた文章の中から都道府県名、市区町村名、駅名を表す単語を抜き出して\
+         関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。なかった場合はnullを返してください."),
+        HumanMessage(content=sample_text),
+        AIMessage(content=sample_result),
+        HumanMessage(content=target_text),
+    ],
+    [
+        SystemMessage(content="あなたは与えられた文章の中からキーワードとタイトルを抜き出してJSON形式で出力するエージェントです"),
+        HumanMessage(content=target_text),
+    ],
+]
 
-# 次に実行する LLM チェーンを定義
-# キャッチコピーを考えてもらう
-chain_second = LLMChain(llm=llm, prompt=prompt_second)
+# チャットモデルにメッセージを渡して、予測を受け取る
+result: LLMResult = chat.generate(batch_messages)
+result_list=result.generations
+chat = ChatOpenAI(temperature=0)
 
-# 二つの LLM チェーンを連結
-overall_chain = SimpleSequentialChain(chains=[chain_first, chain_second], verbose=True)
+messages = [
+    SystemMessage(content="動画の紹介文とそれから抜き出したデータを使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください.\
+         typeがThingなものは除外してください"),
+    HumanMessage(content=result_list)
+]
 
-# 連結してできたチェーンを実行
-chatchphrase = prediction = overall_chain.run(target_text)
-print(chatchphrase)
+# チャットモデルにメッセージを渡して、予測を受け取る
+result = chat(messages)
+print(result.content)
+
+
 
