@@ -41,18 +41,19 @@ batch_messages = [
 
 # チャットモデルにメッセージを渡して、予測を受け取る
 result: LLMResult = chat.generate(batch_messages)
-result_list=result.generations
-chat = ChatOpenAI(temperature=0)
+result_list=[]
+# 予測結果を表示する
+for generations in result.generations:
+    for generation in generations:
+        result_list.append(generation.text)
+print(result_list)
 
-messages = [
+chat= ChatOpenAI(temperature=0)
+
+messages=[
     SystemMessage(content="動画の紹介文とそれから抜き出したデータを使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください.\
          typeがThingなものは除外してください"),
-    HumanMessage(content=result_list)
+    HumanMessage(content=f"{result_list[0]},{result_list[1]},{target_text}")
 ]
-
-# チャットモデルにメッセージを渡して、予測を受け取る
-result = chat(messages)
-print(result.content)
-
-
-
+result2 = chat(messages)
+print(result2.content)

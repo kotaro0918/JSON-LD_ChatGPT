@@ -1,13 +1,15 @@
-# llm ラッパーのインポート
-from langchain import OpenAI
-# プロンプトテンプレートのインポート
-from langchain.prompts import PromptTemplate
+# チャットモデルのラッパーをインポート
+from langchain.chat_models import ChatOpenAI
+# チャットプロンプト用のテンプレートをインポート
+from langchain.prompts.chat import (
+    ChatPromptTemplate,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
+    AIMessagePromptTemplate,
+)
 
-# LLMChain に加えて SimpleSequentialChain もインポートする
-# SimpleSequentialChain は、複数のチェーンを連続実行するためのチェーンで以下の特徴をもつ
-# - 各ステップの入出力は一つ
-# - 各ステップの出力が次のステップの入力になる
-from langchain.chains import LLMChain, SimpleSequentialChain
+# チャットモデルのラッパーを初期化
+chat = ChatOpenAI(temperature=0)
 target_text= "根室本線は北海道の滝川駅から帯広、釧路を経て根室駅を結ぶＪＲ北海道の路線です。このうち釧路駅から\
     根室駅までの区間は「花咲線」の愛称で呼ばれています。観光シーズンには札幌からのリゾート列車が多数運行されます。キハ283系の車体は、\
     ブルーとグリーンに丹頂鶴の赤を組み合わせ北海道らしさを演出しています."
@@ -22,33 +24,33 @@ sample_result='''
 }
 '''
 
-# llm ラッパーの初期化
-llm = OpenAI(temperature=0)
+# SystemMessage 用のテンプレートの作成
+template="あなたは与えられた文章の中から都道府県名、市区町村名、駅名を表す単語を抜き出して\
+         関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。なかった場合はnullを返してください."
+system_message_prompt = SystemMessagePromptTemplate.from_template(template)
 
-# 最初のプロンプトテンプレートの作成
-prompt_first = PromptTemplate(
-    input_variables=["text"],
-    template="あなたは与えられた{text}の中から都道府県名、市区町村名、駅名を表す単語とキーワードとタイトルを抜き出して\
-         関連したwikipediaの情報と併せてJSON形式で出力するエージェントです。なかった場合はnullを返してください.",
-)
+# HumanMessage 用のテンプレートの作成
+human_template="{sample}"
+human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
-# 最初に実行する LLM チェーンを定義
-# 会社名を考えてもらう
-chain_first = LLMChain(llm=llm, prompt=prompt_first)
+human_templete2="{target}"
+human_message_prompt2 = HumanMessagePromptTemplate.from_template(human_templete2)
 
-# 次のプロンプトテンプレートの作成
-prompt_second = PromptTemplate(
-    input_variables=["JSON_list"],
-    template="動画の紹介文とそれから抜き出したデータ{JSON_list}を使いschema.orgのClipクラスを用いてJSON-LD形式で記述してください.",
-)
+ai_templete="{result_sample}"
+ai_message_prompt = AIMessagePromptTemplate.from_template(ai_templete)
+# Message のテンプレートを組合わせて会話の流れを決めます
+messages_template = [
+    system_message_prompt,
+    human_message_prompt,
+    ai_message_prompt,
+    human_message_prompt2
+]
+# チャットプロンプト用のテンプレートを作成します
+chat_prompt_template = ChatPromptTemplate.from_messages(messages_template)
 
-# 次に実行する LLM チェーンを定義
-# キャッチコピーを考えてもらう
-chain_second = LLMChain(llm=llm, prompt=prompt_second)
+# テンプレートに具体値を組み込んでチャットプロンプトを作成します
+chat_prompt = chat_prompt_template.format_prompt(sample=sample_text,result_sample=sample_result,target=target_text).to_messages()
 
-# 二つの LLM チェーンを連結
-overall_chain = SimpleSequentialChain(chains=[chain_first, chain_second], verbose=True)
-
-# 連結してできたチェーンを実行
-chatchphrase = prediction = overall_chain.run(target_text)
-print(chatchphrase)
+# チャットの補完を作成
+completion = chat(chat_prompt)
+print(completion.content)
