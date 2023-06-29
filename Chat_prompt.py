@@ -5,6 +5,7 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate,
 )
+import json
 from langchain.schema import (
     AIMessage,
     HumanMessage,
@@ -22,11 +23,16 @@ Json_template="""
     "name":
     "description":
     "keywords":[]
-    "location":[
+    "contentLocation":[
     {
-        "@type":
+        "@type":Place
         "name":
-        "url":
+        "sameAs":
+        "address":{
+            "@type":"PostalAddress",
+            "addressCountry":
+            "adsressRegion":
+        }
     },
     
     ]
@@ -47,10 +53,14 @@ entity_list="""{
     {"丹頂鶴-鳥類-丹頂鶴": "https://ja.wikipedia.org/wiki/丹頂鶴"}
 }
 """
-
-chat = ChatOpenAI(temperature=0)
+chat =ChatOpenAI(temperature=0)
+messages = [
+    HumanMessage(content=f"{entity_list}の中から都道府県名、市区町村名、駅名を表す要素のみ抜き出して、wikipediaのリンクと合わせて出力してください")
+]
+result = chat(messages)
+entity_list = result.content
 messages=[
-    SystemMessage(content=f"""説明文とピックアップしたキーワード {words_list}と都道府県・市区町村・駅名{entity_list}を使ってSchema.org の Clip クラスを用いて生成して。
+    HumanMessage(content=f"""説明文とピックアップしたキーワード {words_list}と都道府県・市区町村・駅名{entity_list}を使ってSchema.org の Clip クラスを用いて生成して。
 ただし、{Json_template}を埋めるようにエンコードすること。
 """)
 ]

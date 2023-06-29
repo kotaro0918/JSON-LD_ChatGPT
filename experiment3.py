@@ -1,77 +1,112 @@
-from langchain.output_parsers import PydanticOutputParser
-from typing import List
 from langchain.chat_models import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain.schema import (
-    AIMessage,
-    HumanMessage,
-    SystemMessage,
+from langchain.prompts import (
+    ChatPromptTemplate,
+    MessagesPlaceholder,
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate,
 )
 
-llm = ChatOpenAI(temperature=0)
-from typing import List
+from langchain.chains import ConversationChain
+from langchain.chat_models import ChatOpenAI
+from langchain.memory import ConversationBufferMemory
 
-from pydantic import BaseModel, Field
-
-
-class LocationItem(BaseModel):
-    _type: str = Field(..., alias='@type',description="どの型に単語が属するか")
-    name: str 
-    url: str
-    Postlregion: str = Field(description="単語の表す場所が存在する都道府県")
-
-
-class Model(BaseModel):
-    _context: str = Field(..., alias='@context',description="Schema.org")
-    _type: str = Field(..., alias='t@ype')
-    name: str
-    description: str
-    keywords: List[str]
-    location: List[LocationItem]
-from typing import List,Dict
-words_list="根室本線、北海道、滝川駅、帯広、釧路、根室駅、花咲線、リゾート列車、キハ283系、丹頂鶴、北海道らしさ"
-entity_list="""{
-    {"北海道-都道府県-北海道": "https://ja.wikipedia.org/wiki/北海道"},
-    {"滝川駅-駅-滝川駅": "https://ja.wikipedia.org/wiki/滝川駅"},
-    {"帯広市-市-帯広市": "https://ja.wikipedia.org/wiki/帯広市"},
-    {"釧路市-市-釧路市": "https://ja.wikipedia.org/wiki/釧路市"},
-    {"根室駅-駅-根室駅": "https://ja.wikipedia.org/wiki/根室駅"},
-    {"花咲線-路線-花咲線": "https://ja.wikipedia.org/wiki/花咲線"},
-    {"キハ283系-車両-キハ283系": "https://ja.wikipedia.org/wiki/キハ283系"},
-    {"丹頂鶴-鳥類-丹頂鶴": "https://ja.wikipedia.org/wiki/丹頂鶴"}
+input_list=["東京駅","東京都","さいたま市"]
+example1="""
+{
+  "@context": "https://schema.org",
+  "@type": "Clip",
+  "name": "東京駅",
+  "location": {
+    "@type": "Place",
+    "name": "東京駅",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "千代田区",
+      "addressRegion": "東京都",
+      "postalCode": "100-0005",
+      "streetAddress": "東京都千代田区丸の内一丁目9-1"
+    "url": "https://ja.wikipedia.org/wiki/東京駅"
+    }
+  }
+}
+"""
+example2="""
+{
+  "@context": "https://schema.org",
+  "@type": "Clip",
+  "name": "東京都",
+  "location": {
+    "@type": "AdministrativeArea",
+    "name": "東京都",
+    "address": {
+      "@type": "PostalAddress",
+      "addressRegion": "東京都"
+    "url" : "https://ja.wikipedia.org/wiki/東京都"
+    }
+  }
 }
 """
 
-
-
-# 言語モデルにデータ構造を埋めるように促す Query
-JSON_query =f"""説明文とピックアップしたキーワード {words_list}と都道府県・市区町村・駅名{entity_list}を使ってSchema.org の Clip クラスを用いてJSONで生成して。
-ただし、キーワードは schema:keywords, タイトルは schema:name, 都道府県・市区町村・駅名は schema:location を使ってエンコードすること。
+example3="""
+{
+  "@context": "https://schema.org",
+  "@type": "Clip",
+  "name": "さいたま市",
+  "location": {
+    "@type": "City",
+    "name": "さいたま市",
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": "さいたま市",
+      "addressRegion": "埼玉県"
+    "url" : "https://ja.wikipedia.org/wiki/さいたま市"
+    }
+  }
+}
 """
-
-# Parser に元になるデータの型を提供する
-parser =  PydanticOutputParser(pydantic_object=Model)
-
-# input_variables ではなく、 partial_variables に parser からオブジェクトの説明を入力する
-prompt = PromptTemplate(
-    template="Answer the user query and answer should be formatted in JSON. \n{format_instructions}\n{query}\n",
-    input_variables=["query"],
-    partial_variables={"format_instructions": parser.get_format_instructions()}
-)
-_input = prompt.format_prompt(query=JSON_query)
-
-output = llm(_input.to_messages())
-result1= parser.parse(output.content)
-print(parser.get_format_instructions())
-print(result1)
+output_list=[example1,example2,example3]
 
 chat = ChatOpenAI(temperature=0)
 
-# チャットモデルに渡すメッセージを作成する
-messages = [
-    SystemMessage(content="あなたは与えられたリストからShcema.orgのClipクラスを用いてJSON-LDを生成するエージェントです。"),
-    HumanMessage(content=str(result1))
-]
+target_text= "根室本線は北海道の滝川駅から帯広、釧路を経て根室駅を結ぶＪＲ北海道の路線です。このうち釧路駅から\
+    根室駅までの区間は「花咲線」の愛称で呼ばれています。観光シーズンには札幌からのリゾート列車が多数運行されます。キハ283系の車体は、\
+    ブルーとグリーンに丹頂鶴の赤を組み合わせ北海道らしさを演出しています."
+sample_text = "三郷市は、埼玉県南東部にあり、東京都と千葉県に接しています。名物の小松菜はハウス栽培で１年を通して出荷されます。\
+         小松菜を使った新しい料理にも取り組んでいます。「小松菜餃子」は、小松菜パウダーを皮に練りこみ、具にも小松菜がたっぷりと入っています。"
+sample_result='''
+{
+    {"三郷市-市-三郷市": "https://ja.wikipedia.org/wiki/三郷市"},
+    {"埼玉県-都道府県-埼玉県": "https://ja.wikipedia.org/wiki/埼玉県"},
+    {"東京都-都道府県-東京都": "https://ja.wikipedia.org/wiki/東京都"},
+    {"千葉県-都道府県-千葉県": "https://ja.wikipedia.org/wiki/千葉県"},
+}
+'''
 
-result = chat(messages)
-print(result.content)
+prompt = ChatPromptTemplate.from_messages(
+    [
+        MessagesPlaceholder(variable_name="history"),
+        SystemMessagePromptTemplate.from_template(
+            """あなたは以下の動画に関する説明文についての質問に回答するエージェントです。
+
+text:根室本線は北海道の滝川駅から帯広、釧路を経て根室駅を結ぶＪＲ北海道の路線です。
+このうち釧路駅から根室駅までの区間は「花咲線」の愛称で呼ばれています。
+観光シーズンには札幌からのリゾート列車が多数運行されます。
+キハ283系の車体は、ブルーとグリーンに丹頂鶴の赤を組み合わせ北海道らしさを演出しています.
+
+"""
+        ),
+        HumanMessagePromptTemplate.from_template("{input}"),
+    ]
+)
+memory = ConversationBufferMemory(return_messages=True, memory_key="history")
+conversation = ConversationChain(memory=memory, prompt=prompt, llm=chat, verbose=True)
+memory.chat_memory.add_user_message(f"あなたは以下のテキスト{sample_text}から市町村名を抜き出して出力するエージェントです")
+memory.chat_memory.add_ai_message(f"{sample_result}")
+
+words_list = conversation.run(input="キーワードとタイトルをピックアップして")
+
+print(words_list)
+
+entity_list = conversation.run(f"""例のように都道府県・市区町村・駅名のような場所を表す単語をピックアップして、関連したwikipdiaのリンクを表示してください""")
+
+print(entity_list)
